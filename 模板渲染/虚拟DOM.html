@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="root" >
+        <div class="aa1" id="a2">hello1</div>
+        <div class="aa2">hello2</div>
+        <div>hello3</div>
+        <ul>
+            <li class="aa3">1</li>
+            <li id="id1">2</li>
+            <li>3</li>
+        </ul>
+    </div>
+</body>
+</html>
+<script>
+
+    /*
+        1.为什么要使用虚拟DOM
+            为了提高Vue 的性能
+        2. 元素节点
+            <div /> => { tag:'div' }
+        3. 文本节点
+            文本节点 => { tag:undefind,value:'文本节点' }
+        4. 有属性的元素节点
+            <div title="1" class="a" ></div> =>
+            { tag:"div",data:{
+                title:'1',
+                class:'a'
+            } }
+        5. 包含子节点
+            <div><div></div></div> =>
+            { tag:'div',children:[
+                {
+                    tag:'div'
+                }
+            ] }
+
+    */
+
+    class VNode {
+        /*
+            @ tag:      标签名
+            @ data:     描述属性
+            @ value:    描述文本
+            @ type:     1元素/3文本
+        */
+        constructor( tag,data,value,type ){
+            this.tag        =  tag && tag.toLowerCase();
+            this.data       = data;
+            this.value      = value;
+            this.type       = type;
+            this.children   = [];
+        }
+        appendChild( vnode ){
+            this.children.push( vnode );
+        }
+    }
+
+
+    /*
+        使用的递归来遍历 DOM 元素，生成 虚拟 DOM
+        Vue 中的源代码使用的是 栈结构，使用栈储存 父元素来实现递归生成
+    */
+    function getVNode ( node ){
+        let nodeType = node.nodeType;
+        let _vnode = null;
+        if(nodeType === 1){
+            let nodeName = node.nodeName;
+            let attrs = node.attributes;
+            let _attrObj = {};
+            for( let i =0;i< attrs.length;i++ ){    // attrs[ i ] 属性节点 ( nodeType == 2 ) 
+                _attrObj[ attrs[ i ].nodeName ] = attrs[ i ].nodeValue;
+            }
+            _vnode = new VNode( nodeName,_attrObj,undefined,nodeType );
+
+            // 考虑子节点
+            let childNodes = node.childNodes;
+            for( let i = 0;i < childNodes.length;i++ ){
+                _vnode.appendChild( getVNode( childNodes[i] ) ); // 递归
+            }
+
+        }else if( nodeType === 3 ){
+            _vnode = new VNode( undefined,undefined,node.nodeValue,nodeType );
+        }
+
+        return _vnode;
+    }
+
+    let root = document.querySelector('#root');
+
+    let _VNode = getVNode( root );
+    console.log(_VNode);
+
+    // 将 VNode 转换成真正的 DOM
+    function parseVNode( vnode ){
+        // 创建真实的 DOM
+        let type = vnode.type;
+        let _node = null;
+        if(type === 3){ // 文本节点
+            return document.createTextNode( vnode.value );
+        }else if( type === 1 ){ // 元素节点 
+
+            _node = document.createElement( vnode.tag );
+
+            // 属性
+            let data = vnode.data;  //现在啊这个 data 是键值对
+            Object.keys( data ).forEach( ( key ) => {
+                let attrName = key;
+                let attrValue = data[ key ];
+                _node.setAttribute( attrName,attrValue );
+            } )
+            // 子元素
+            let children = vnode.children;
+            children.forEach( subvnode => {
+                _node.appendChild( parseVNode( subvnode ) );    //递归转换子元素 ( 虚拟DOM )
+            } );
+
+            return _node;
+        }
+    }
+
+    // 在真正的 Vue 中也是使用的递归 + 栈 数据类型
+
+    let DOM = parseVNode( _VNode );
+    
+    console.log( DOM );
+
+</script>
